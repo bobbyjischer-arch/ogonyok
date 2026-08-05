@@ -1,0 +1,90 @@
+name = "ogonyok"
+main = "worker/src/index.ts"
+compatibility_date = "2026-07-29"
+workers_dev = true
+
+# Мини-апп отдаётся статикой с того же origin, что и API. Воркер поднимается
+# только на своих путях — на файлы запросы идут мимо него и не тратят лимит.
+[assets]
+directory = "./miniapp/dist/"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*", "/tg/*", "/setup", "/healthz"]
+
+[vars]
+APP_NAME = "Огонёк"
+# '1' — публичный режим: бот открыт всем и никому ничего не пересылает.
+# '0' включает режим с куратором, см. ниже.
+PUBLIC_MODE = "1"
+# Кому уходят отметки и у кого работает /admin. Пусто = куратора нет.
+CURATOR_ID = ""
+# Кого пускать: id через запятую. Пусто = открыто всем.
+ALLOWED_USERS = ""
+# Необязательная ссылка на канал в профиле приложения.
+CHANNEL_URL = ""
+
+[[d1_databases]]
+binding = "DB"
+database_name = "ogonyok"
+# Подставится после `npm run db:create`.
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+migrations_dir = "migrations"
+
+# Раз в час добираем занятия, забытые открытыми. :23, а не :00 — чтобы не
+# попадать в общий для всей планеты пик расписаний.
+[triggers]
+crons = ["23 * * * *"]
+
+# Логи воркера в дашборде Cloudflare (и в `npm run logs`).
+[observability]
+enabled = true
+
+# ==================================================================
+# Режим с куратором
+# ==================================================================
+# Тот же код, `PUBLIC_MODE = "0"`: отметки пересылаются куратору в личку,
+# он отвечает реплаем, а пускают только перечисленных. Это про «я и тренер»
+# или небольшую группу.
+#
+# Вынесено в окружение, потому что это отдельный воркер, отдельный бот и
+# отдельная база; переменные и привязки окружениями не наследуются, поэтому
+# здесь всё перечислено заново. id ниже — выдуманные, ими пользуется
+# `scripts/smoke.py`; для своего деплоя подставь свои (узнать id — написать
+# @userinfobot).
+#
+#   npm run dev:curated                  # локально
+#   npx wrangler deploy --env curated    # в прод
+
+[env.curated]
+name = "tracker-curated"
+workers_dev = true
+
+[env.curated.assets]
+directory = "./miniapp/dist/"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*", "/tg/*", "/setup", "/healthz"]
+
+[env.curated.vars]
+APP_NAME = "Трекер занятий"
+PUBLIC_MODE = "0"
+CURATOR_ID = "10000000002"
+ALLOWED_USERS = "10000000001"
+CHANNEL_URL = ""
+
+[[env.curated.d1_databases]]
+binding = "DB"
+database_name = "tracker-curated"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+migrations_dir = "migrations"
+
+# :17, чтобы не совпадать с публичной версией.
+[env.curated.triggers]
+crons = ["17 * * * *"]
+
+[env.curated.observability]
+enabled = true
+
+# Секреты задаются отдельно и в репозиторий не попадают:
+#   npx wrangler secret put BOT_TOKEN
+#   npx wrangler secret put WEBHOOK_SECRET

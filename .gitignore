@@ -1,0 +1,11 @@
+node_modules/
+miniapp/dist/
+miniapp/tsconfig.tsbuildinfo
+.wrangler/
+.dry/
+.dev.vars*
+!.dev.vars.example
+scripts/__pycache__/
+*.log
+.DS_Store
+.webhook-secret*

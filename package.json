@@ -1,0 +1,33 @@
+{
+  "name": "ogonyok",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Telegram bot + mini app: привычки, серии и занятия, на Cloudflare Workers + D1",
+  "scripts": {
+    "install:all": "npm install && npm --prefix miniapp install",
+    "build": "npm --prefix miniapp run build",
+    "dev": "npm run build && wrangler dev",
+    "deploy": "npm run build && wrangler deploy",
+    "check": "npm run build && wrangler deploy --dry-run --outdir .dry",
+    "typecheck": "tsc -p tsconfig.json",
+    "db:create": "wrangler d1 create ogonyok",
+    "db:migrate": "wrangler d1 migrations apply ogonyok --remote",
+    "db:migrate:local": "wrangler d1 migrations apply ogonyok --local",
+    "db:console": "wrangler d1 execute ogonyok --remote --command",
+    "secrets": "wrangler secret put BOT_TOKEN && wrangler secret put WEBHOOK_SECRET",
+    "logs": "wrangler tail --format pretty",
+    "dev:curated": "npm run build && wrangler dev --env curated",
+    "deploy:curated": "npm run build && wrangler deploy --env curated",
+    "db:create:curated": "wrangler d1 create tracker-curated",
+    "db:migrate:curated": "wrangler d1 migrations apply tracker-curated --env curated --remote",
+    "db:migrate:curated:local": "wrangler d1 migrations apply tracker-curated --env curated --local",
+    "db:console:curated": "wrangler d1 execute tracker-curated --env curated --remote --command",
+    "secrets:curated": "wrangler secret put BOT_TOKEN --env curated && wrangler secret put WEBHOOK_SECRET --env curated",
+    "logs:curated": "wrangler tail --env curated --format pretty"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260722.1",
+    "typescript": "^5.7.3",
+    "wrangler": "^4.115.0"
+  }
+}
