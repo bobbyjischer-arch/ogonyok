@@ -31,13 +31,15 @@ function asDaysMask(value: unknown): number {
 }
 
 /**
- * Отметить можно сегодняшний или пропущенный день в пределах месяца: «сделал,
- * но забыл нажать» — обычное дело, а вот отмечать будущее нельзя.
+ * Отметить можно сегодняшний или пропущенный день в пределах двух месяцев:
+ * «сделал, но забыл нажать» — обычное дело, а вот отмечать будущее нельзя.
+ * Окно совпадает с сеткой истории в приложении (8 недель), иначе тап по
+ * старой клетке уходил бы в ошибку.
  */
 function validDay(value: unknown, today: string): string | null {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
   if (value > today) return null;
-  const earliest = new Date(Date.parse(`${today}T00:00:00Z`) - 30 * 86_400_000)
+  const earliest = new Date(Date.parse(`${today}T00:00:00Z`) - 60 * 86_400_000)
     .toISOString()
     .slice(0, 10);
   return value < earliest ? null : value;

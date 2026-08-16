@@ -49,7 +49,10 @@ function timingSafeEqual(a: string, b: string): boolean {
 export async function verifyInitData(
   raw: string,
   botToken: string,
-  maxAgeSeconds = 24 * 60 * 60,
+  // Неделя, а не сутки: десктопный Telegram держит мини-апп открытым днями,
+  // и подпись, «протухшая» за спиной у пользователя, молча ломала бы все
+  // сохранения. Подпись всё равно неподдельна — свежесть только против реплея.
+  maxAgeSeconds = 7 * 24 * 60 * 60,
 ): Promise<AuthResult> {
   if (!raw) return { ok: false, reason: 'missing' };
 

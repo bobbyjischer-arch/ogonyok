@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CuratorPanel } from './components/CuratorPanel';
 import { HabitDetail } from './components/HabitDetail';
 import { HabitEditor } from './components/HabitEditor';
@@ -70,6 +70,12 @@ export default function App() {
     mode: 'build',
   });
 
+  // Мутации выстраиваются в цепочку: состояния применяются в порядке
+  // отправки, а не в порядке прихода ответов. Без этого медленный ответ
+  // первой затирал результат второй, и сохранение «пропадало».
+  const chainRef = useRef<Promise<unknown>>(Promise.resolve());
+  const busyRef = useRef(false);
+
   const lang: Lang = asLang(state?.user.settings.language ?? DEFAULT_LANG);
 
   /* --- загрузка --- */
@@ -90,13 +96,12 @@ export default function App() {
         });
 
         // Часовой пояс устройства уезжает на сервер, чтобы «сегодня» в боте и
-        // в приложении означало одни и те же сутки.
+        // в приложении означало одни и те же сутки. Идёт через ту же цепочку,
+        // что и обычные мутации: если его ответ придёт позже чужого, он
+        // затёр бы свежее состояние старым снимком.
         const tzOffset = -new Date().getTimezoneOffset();
         if (next.user.settings.tzOffset !== tzOffset) {
-          client
-            .updateSettings({ tzOffset })
-            .then(setState)
-            .catch(() => undefined);
+          runQuiet(() => client.updateSettings({ tzOffset }));
         }
       })
       .catch((error: unknown) => {
@@ -115,7 +120,7 @@ export default function App() {
 
   useEffect(() => {
     if (!toast) return undefined;
-    const timer = window.setTimeout(() => setToast(null), 3200);
+    const timer = window.setTimeout(() => setToast(null), 5000);
     return () => clearTimeout(timer);
   }, [toast]);
 
@@ -126,18 +131,51 @@ export default function App() {
 
   /* --- мутации --- */
 
-  /** Любое действие: сервер отвечает свежим состоянием, клиент его подменяет. */
+  /** Тихая мутация без блокировки интерфейса, но в общем порядке цепочки. */
+  const runQuiet = useCallback((action: () => Promise<State>): void => {
+    chainRef.current = chainRef.current
+      .then(async () => {
+        try {
+          setState(await action());
+        } catch {
+          /* настройки — не критично: догоним при следующем заходе */
+        }
+      })
+      .catch(() => undefined);
+  }, []);
+
+  /**
+   * Любое действие: сервер отвечает свежим состоянием, клиент его подменяет.
+   * Дабл-тап игнорируется, пока идёт запрос — иначе повторная отметка дня
+   * тут же снимала бы только что поставленную.
+   */
   const run = useCallback(
-    async (action: () => Promise<State>): Promise<void> => {
+    async (action: () => Promise<State>): Promise<boolean> => {
+      if (busyRef.current) return false;
+      busyRef.current = true;
       setBusy(true);
-      try {
-        setState(await action());
-      } catch (error) {
-        haptic.notify('error');
-        setToast(translate(lang, errorKey(codeOf(error))));
-      } finally {
-        setBusy(false);
-      }
+      let ok = false;
+      const job = chainRef.current.then(async () => {
+        try {
+          setState(await action());
+          ok = true;
+        } catch (error) {
+          if (error instanceof ApiError && error.status === 401) {
+            // Сессия Telegram истекла целиком: каждый следующий запрос тоже
+            // упадёт, так что честнее показать экран, а не мигающий тост.
+            setErrorCode(codeOf(error));
+            setBoot('error');
+          } else {
+            haptic.notify('error');
+            setToast(translate(lang, errorKey(codeOf(error))));
+          }
+        }
+      });
+      chainRef.current = job.catch(() => undefined);
+      await job;
+      busyRef.current = false;
+      setBusy(false);
+      return ok;
     },
     [lang],
   );
@@ -158,28 +196,37 @@ export default function App() {
   );
 
   const checkin = useCallback(
-    (id: string, text: string) => run(() => client.checkin(id, text)),
+    (id: string, text: string) => run(() => client.checkin(id, text)).then(() => undefined),
     [client, run],
   );
 
   // Возвращают промис: панель куратора ждёт завершения, чтобы перезапросить
   // чужие события — в собственном снимке их нет.
   const patchActivity = useCallback(
-    (id: string, patch: ActivityPatch) => run(() => client.patchActivity(id, patch)),
+    // Панель куратора ждёт завершения промиса, чтобы перезапросить чужие
+    // события; результат мутации ей не нужен.
+    (id: string, patch: ActivityPatch) => run(() => client.patchActivity(id, patch)).then(() => undefined),
     [client, run],
   );
 
   const deleteActivity = useCallback(
-    (id: string) => run(() => client.deleteActivity(id)),
+    (id: string) => run(() => client.deleteActivity(id)).then(() => undefined),
     [client, run],
   );
 
   const submitHabit = useCallback(
     (draft: HabitDraft) => {
       const target = editor.habit;
-      setEditor({ open: false, habit: null, mode: draft.mode });
-      setOpenHabitId(null);
-      void run(() => (target ? client.updateHabit(target.id, draft) : client.createHabit(draft)));
+      // Редактор закрывается только после успешного ответа: при ошибке сети
+      // черновик оставался бы у пользователя, а не в воздухе.
+      void run(() => (target ? client.updateHabit(target.id, draft) : client.createHabit(draft))).then(
+        (ok) => {
+          if (ok) {
+            setEditor((prev) => ({ ...prev, open: false, habit: null }));
+            setOpenHabitId(null);
+          }
+        },
+      );
     },
     [client, editor.habit, run],
   );
