@@ -74,7 +74,7 @@ export function Button({
       }}
       // min-h, not h: a label that wraps (long word, narrow phone, other
       // language) has to push the outline down instead of spilling out of it.
-      className={`pressable inline-flex min-h-[52px] items-center justify-center gap-2 rounded-[14px] px-4 py-2 text-center text-[16px] font-semibold leading-tight outline-none disabled:opacity-40 ${
+      className={`pressable inline-flex min-h-[52px] items-center justify-center gap-2 rounded-[14px] px-5 py-2 text-center text-[16px] font-semibold leading-tight outline-none disabled:opacity-40 ${
         BUTTON_STYLES[variant]
       } ${full ? 'w-full' : ''}`}
     >
@@ -122,7 +122,7 @@ export function Row({
         haptic.impact('light');
         onClick?.();
       }}
-      className={`flex w-full items-center gap-3 px-4 text-left ${
+      className={`flex w-full items-center gap-3 px-5 text-left ${
         interactive ? 'pressable' : 'cursor-default'
       }`}
     >

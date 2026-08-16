@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Icon, type IconName } from './Icon';
+import { ProgressChart } from './ProgressChart';
 import { Button, Group, Ring, Row, Sheet, Stat } from './ui';
 import { useNow } from '../lib/useNow';
 import {
@@ -97,7 +98,7 @@ export function HabitDetail({
 
   if (habit.mode === 'build') {
     const streak = streakOf(habit, today);
-    const grid = recentDays(habit, today, 28);
+    const grid = recentDays(habit, today, 56); // 8 недель вместо 4
     const rate =
       streak.last30.planned === 0
         ? 0
@@ -152,6 +153,10 @@ export function HabitDetail({
             caption={`${streak.last30.done} / ${streak.last30.planned}`}
           />
           <Stat icon="calendar" label={t('memberSince')} value={formatDate(habit.createdAt, lang)} />
+        </div>
+
+        <div className="mt-5">
+          <ProgressChart habit={habit} today={today} />
         </div>
 
         <h3 className="px-1 pb-2 pt-6 text-[13px] font-semibold uppercase tracking-[0.06em] text-faint">

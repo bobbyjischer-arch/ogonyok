@@ -26,8 +26,7 @@ CHANNEL_URL = ""
 [[d1_databases]]
 binding = "DB"
 database_name = "ogonyok"
-# Подставится после `npm run db:create`.
-database_id = "REPLACE_WITH_D1_DATABASE_ID"
+database_id = "932fd76e-b6ab-47af-8cd2-106f61f69746"
 migrations_dir = "migrations"
 
 # Раз в час добираем занятия, забытые открытыми. :23, а не :00 — чтобы не
