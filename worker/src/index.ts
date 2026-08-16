@@ -6,7 +6,7 @@
 
 import { handleApi } from './api';
 import { closeStaleActivities, handleUpdate } from './bot';
-import { isPublic, type Env } from './env';
+import { appUrl, isPublic, type Env } from './env';
 import { Telegram, type TgUpdate } from './tg';
 import { json } from './util';
 
@@ -52,7 +52,7 @@ async function handleSetup(request: Request, env: Env, origin: string): Promise<
   await tg.setMyCommands(botCommands(env));
   // Без chat_id кнопка меню становится общей для всех личных чатов бота.
   await tg.call('setChatMenuButton', {
-    menu_button: { type: 'web_app', text: 'Приложение', web_app: { url: `${origin}/` } },
+    menu_button: { type: 'web_app', text: 'Приложение', web_app: { url: appUrl(origin) } },
   });
   const info = await tg.call('getWebhookInfo');
 
@@ -93,7 +93,7 @@ export default {
       // 200 уходит сразу, работа доделывается фоном: Telegram не ждёт наши
       // походы в Bot API и не шлёт апдейт повторно.
       const tg = new Telegram(env.BOT_TOKEN);
-      ctx.waitUntil(handleUpdate(update, env, tg, `${url.origin}/`));
+      ctx.waitUntil(handleUpdate(update, env, tg, appUrl(url.origin)));
       return new Response('ok');
     }
 
